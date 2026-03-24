@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@renderer/components/ui/tooltip';
-import { Bell, Info, Settings, Wrench } from 'lucide-react';
+import { Bell, Info, Server, Settings, Wrench } from 'lucide-react';
 
 import type { LucideIcon } from 'lucide-react';
 
@@ -34,7 +34,14 @@ const tabs: TabConfig[] = [
     description:
       'Core app preferences like theme, language, display density, and startup behavior.',
   },
-  // { id: 'connection', label: 'Connection', icon: Server, description: 'Manage CLI connection and authentication settings.', electronOnly: true },
+  {
+    id: 'connection',
+    label: 'Connection',
+    icon: Server,
+    description:
+      'Connect to a remote machine via SSH to view and manage Claude Code sessions running there.',
+    electronOnly: true,
+  },
   {
     id: 'notifications',
     label: 'Notifications',
