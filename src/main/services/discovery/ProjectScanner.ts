@@ -344,13 +344,6 @@ export class ProjectScanner {
   private async scanProject(encodedName: string): Promise<Project[]> {
     try {
       const projectPath = path.join(this.projectsDir, encodedName);
-
-      // Check existence before readdir — over SSH, project directories may
-      // have been deleted since the parent readdir enumerated them.
-      if (!(await this.fsProvider.exists(projectPath))) {
-        return [];
-      }
-
       const readdirStart = Date.now();
       const entries = await this.fsProvider.readdir(projectPath);
       const readdirMs = Date.now() - readdirStart;
