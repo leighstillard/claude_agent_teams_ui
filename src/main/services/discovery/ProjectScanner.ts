@@ -176,8 +176,8 @@ export class ProjectScanner {
       validProjects.sort((a, b) => (b.mostRecentSession ?? 0) - (a.mostRecentSession ?? 0));
 
       if (this.fsProvider.type === 'ssh') {
-        logger.debug(
-          `SSH scan completed: ${validProjects.length} projects in ${Date.now() - startedAt}ms`
+        logger.warn(
+          `SSH scan completed: ${validProjects.length} projects from ${projectDirs.length} dirs in ${Date.now() - startedAt}ms`
         );
       }
 
