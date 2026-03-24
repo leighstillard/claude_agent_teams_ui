@@ -344,6 +344,13 @@ export class ProjectScanner {
   private async scanProject(encodedName: string): Promise<Project[]> {
     try {
       const projectPath = path.join(this.projectsDir, encodedName);
+
+      // Check existence before readdir — over SSH, project directories may
+      // have been deleted since the parent readdir enumerated them.
+      if (!(await this.fsProvider.exists(projectPath))) {
+        return [];
+      }
+
       const readdirStart = Date.now();
       const entries = await this.fsProvider.readdir(projectPath);
       const readdirMs = Date.now() - readdirStart;
@@ -533,7 +540,15 @@ export class ProjectScanner {
 
       return projects;
     } catch (error) {
-      logger.error(`Error scanning project ${encodedName}:`, error);
+      // Over SSH, "No such file" is expected for deleted projects — log at debug level
+      // ssh2 SFTP errors use a numeric `code` property (2 = SSH_FX_NO_SUCH_FILE)
+      const errorCode = error instanceof Error ? (error as { code?: unknown }).code : undefined;
+      const isNoSuchFile = errorCode === 2 || errorCode === 'ENOENT';
+      if (this.fsProvider.type === 'ssh' && isNoSuchFile) {
+        logger.debug(`Skipping unavailable remote project ${encodedName}`);
+      } else {
+        logger.error(`Error scanning project ${encodedName}:`, error);
+      }
       return [];
     }
   }
