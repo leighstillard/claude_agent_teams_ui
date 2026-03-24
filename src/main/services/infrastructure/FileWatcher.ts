@@ -133,6 +133,14 @@ export class FileWatcher extends EventEmitter {
     this.fsProvider = provider;
   }
 
+  /**
+   * Join path segments using POSIX separators for SSH (remote Linux paths)
+   * or platform separators for local filesystem.
+   */
+  private joinPath(...segments: string[]): string {
+    return this.fsProvider.type === 'ssh' ? path.posix.join(...segments) : path.join(...segments);
+  }
+
   // ===========================================================================
   // Watcher Control
   // ===========================================================================
@@ -547,7 +555,7 @@ export class FileWatcher extends EventEmitter {
       for (const dir of projectDirs) {
         if (!dir.isDirectory()) continue;
 
-        const projectPath = path.join(this.projectsPath, dir.name);
+        const projectPath = this.joinPath(this.projectsPath, dir.name);
         let entries: FsDirent[];
         try {
           entries = await this.fsProvider.readdir(projectPath);
@@ -558,7 +566,7 @@ export class FileWatcher extends EventEmitter {
         for (const entry of entries) {
           if (!entry.isFile() || !entry.name.endsWith('.jsonl')) continue;
 
-          const fullPath = path.join(projectPath, entry.name);
+          const fullPath = this.joinPath(projectPath, entry.name);
           seenFiles.add(fullPath);
           try {
             const observedSize =
@@ -566,7 +574,7 @@ export class FileWatcher extends EventEmitter {
                 ? entry.size
                 : (await this.fsProvider.stat(fullPath)).size;
             const lastSize = this.polledFileSizes.get(fullPath);
-            const relativePath = path.join(dir.name, entry.name);
+            const relativePath = this.joinPath(dir.name, entry.name);
 
             if (lastSize === undefined) {
               // First time seeing this file: after baseline, emit add.
@@ -635,7 +643,7 @@ export class FileWatcher extends EventEmitter {
   private async processProjectsChange(eventType: string, filename: string): Promise<void> {
     const fullPath = path.isAbsolute(filename)
       ? path.normalize(filename)
-      : path.join(this.projectsPath, filename);
+      : this.joinPath(this.projectsPath, filename);
     const relativePath = path.relative(this.projectsPath, fullPath);
 
     // Ignore events outside of the watched projects root.

@@ -101,6 +101,14 @@ export class ProjectScanner {
   private readonly sessionSearcher: SessionSearcher;
   private readonly projectPathResolver: ProjectPathResolver;
 
+  /**
+   * Join path segments using POSIX separators for SSH (remote Linux paths)
+   * or platform separators for local filesystem.
+   */
+  private joinPath(...segments: string[]): string {
+    return this.fsProvider.type === 'ssh' ? path.posix.join(...segments) : path.join(...segments);
+  }
+
   constructor(projectsDir?: string, todosDir?: string, fsProvider?: FileSystemProvider) {
     this.projectsDir = projectsDir ?? getProjectsBasePath();
     this.todosDir = todosDir ?? getTodosBasePath();
@@ -343,7 +351,7 @@ export class ProjectScanner {
    */
   private async scanProject(encodedName: string): Promise<Project[]> {
     try {
-      const projectPath = path.join(this.projectsDir, encodedName);
+      const projectPath = this.joinPath(this.projectsDir, encodedName);
       const readdirStart = Date.now();
       const entries = await this.fsProvider.readdir(projectPath);
       const readdirMs = Date.now() - readdirStart;
@@ -385,7 +393,7 @@ export class ProjectScanner {
         sessionFiles,
         this.fsProvider.type === 'ssh' ? 32 : ProjectScanner.LOCAL_SESSION_BATCH,
         async (file) => {
-          const filePath = path.join(projectPath, file.name);
+          const filePath = this.joinPath(projectPath, file.name);
           const { mtimeMs, birthtimeMs } = await this.resolveFileDetails(file, filePath);
           let cwd: string | null = null;
 
@@ -547,7 +555,7 @@ export class ProjectScanner {
    */
   async getProject(projectId: string): Promise<Project | null> {
     const baseDir = extractBaseDir(projectId);
-    const projectPath = path.join(this.projectsDir, baseDir);
+    const projectPath = this.joinPath(this.projectsDir, baseDir);
 
     if (!(await this.fsProvider.exists(projectPath))) {
       return null;
@@ -574,7 +582,7 @@ export class ProjectScanner {
   async listSessions(projectId: string): Promise<Session[]> {
     try {
       const baseDir = extractBaseDir(projectId);
-      const projectPath = path.join(this.projectsDir, baseDir);
+      const projectPath = this.joinPath(this.projectsDir, baseDir);
       const sessionFilter = await this.getSessionFilterForProject(projectId);
       const shouldFilterNoise = this.fsProvider.type !== 'ssh';
       const metadataLevel: SessionMetadataLevel = this.fsProvider.type === 'ssh' ? 'light' : 'deep';
@@ -591,7 +599,7 @@ export class ProjectScanner {
         sessionFiles = sessionFiles.filter((f) => sessionFilter.has(extractSessionId(f.name)));
       }
 
-      const sessionPaths = sessionFiles.map((file) => path.join(projectPath, file.name));
+      const sessionPaths = sessionFiles.map((file) => this.joinPath(projectPath, file.name));
       const decodedPath = await this.resolveProjectPathForId(projectId, sessionPaths);
 
       const sessions = await this.collectFulfilledInBatches(
@@ -599,7 +607,7 @@ export class ProjectScanner {
         this.fsProvider.type === 'ssh' ? 8 : 16,
         async (file) => {
           const sessionId = extractSessionId(file.name);
-          const filePath = path.join(projectPath, file.name);
+          const filePath = this.joinPath(projectPath, file.name);
           const fileDetails = await this.resolveFileDetails(file, filePath);
           const prefetchedMtimeMs = fileDetails.mtimeMs;
           const prefetchedSize = fileDetails.size;
@@ -663,7 +671,7 @@ export class ProjectScanner {
       const includeTotalCount = options?.includeTotalCount ?? false;
       const prefilterAll = options?.prefilterAll ?? false;
       const baseDir = extractBaseDir(projectId);
-      const projectPath = path.join(this.projectsDir, baseDir);
+      const projectPath = this.joinPath(this.projectsDir, baseDir);
       const sessionFilter = await this.getSessionFilterForProject(projectId);
       const shouldFilterNoise = this.fsProvider.type !== 'ssh';
       const metadataLevel: SessionMetadataLevel =
@@ -697,7 +705,7 @@ export class ProjectScanner {
         sessionFiles,
         this.fsProvider.type === 'ssh' ? 48 : 200,
         async (file) => {
-          const filePath = path.join(projectPath, file.name);
+          const filePath = this.joinPath(projectPath, file.name);
           const fileDetails = await this.resolveFileDetails(file, filePath);
           return {
             name: file.name,
@@ -1141,7 +1149,7 @@ export class ProjectScanner {
   async listSessionFiles(projectId: string): Promise<string[]> {
     try {
       const baseDir = extractBaseDir(projectId);
-      const projectPath = path.join(this.projectsDir, baseDir);
+      const projectPath = this.joinPath(this.projectsDir, baseDir);
       const sessionFilter = await this.getSessionFilterForProject(projectId);
 
       if (!(await this.fsProvider.exists(projectPath))) {
@@ -1156,7 +1164,7 @@ export class ProjectScanner {
         files = files.filter((entry) => sessionFilter.has(extractSessionId(entry.name)));
       }
 
-      return files.map((entry) => path.join(projectPath, entry.name));
+      return files.map((entry) => this.joinPath(projectPath, entry.name));
     } catch (error) {
       logger.error(`Error listing session files for project ${projectId}:`, error);
       return [];

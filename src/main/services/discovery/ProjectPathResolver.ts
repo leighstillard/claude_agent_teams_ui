@@ -37,6 +37,10 @@ export class ProjectPathResolver {
     this.fsProvider = fsProvider ?? new LocalFileSystemProvider();
   }
 
+  private joinPath(...segments: string[]): string {
+    return this.fsProvider.type === 'ssh' ? path.posix.join(...segments) : path.join(...segments);
+  }
+
   /**
    * Resolve a project ID to a canonical path.
    */
@@ -109,7 +113,7 @@ export class ProjectPathResolver {
   }
 
   private async listSessionPaths(projectId: string): Promise<string[]> {
-    const projectDir = path.join(this.projectsDir, extractBaseDir(projectId));
+    const projectDir = this.joinPath(this.projectsDir, extractBaseDir(projectId));
     if (!(await this.fsProvider.exists(projectDir))) {
       return [];
     }
@@ -118,7 +122,7 @@ export class ProjectPathResolver {
       const entries = await this.fsProvider.readdir(projectDir);
       return entries
         .filter((entry) => entry.isFile() && entry.name.endsWith('.jsonl'))
-        .map((entry) => path.join(projectDir, entry.name));
+        .map((entry) => this.joinPath(projectDir, entry.name));
     } catch (error) {
       logger.error(`Failed to read session files for ${projectId}:`, error);
       return [];
