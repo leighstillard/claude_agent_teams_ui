@@ -533,15 +533,10 @@ export class ProjectScanner {
 
       return projects;
     } catch (error) {
-      // Over SSH, "No such file" is expected for deleted projects — log at debug level
-      // ssh2 SFTP errors use a numeric `code` property (2 = SSH_FX_NO_SUCH_FILE)
       const errorCode = error instanceof Error ? (error as { code?: unknown }).code : undefined;
-      const isNoSuchFile = errorCode === 2 || errorCode === 'ENOENT';
-      if (this.fsProvider.type === 'ssh' && isNoSuchFile) {
-        logger.debug(`Skipping unavailable remote project ${encodedName}`);
-      } else {
-        logger.error(`Error scanning project ${encodedName}:`, error);
-      }
+      logger.warn(
+        `[scanProject] FAILED ${encodedName} code=${String(errorCode)} message=${error instanceof Error ? error.message : String(error)}`
+      );
       return [];
     }
   }
